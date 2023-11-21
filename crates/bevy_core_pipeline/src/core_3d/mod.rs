@@ -20,6 +20,7 @@ pub mod graph {
         pub const MAIN_TRANSPARENT_PASS: &str = "main_transparent_pass";
         pub const END_MAIN_PASS: &str = "end_main_pass";
         pub const BLOOM: &str = "bloom";
+        pub const DEPTH_OF_FIELD: &str = "depth_of_field";
         pub const TONEMAPPING: &str = "tonemapping";
         pub const FXAA: &str = "fxaa";
         pub const UPSCALING: &str = "upscaling";

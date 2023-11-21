@@ -616,6 +616,11 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "depth_of_field"
+path = "examples/3d/depth_of_field.rs"
+doc-scrape-examples = true
+
+[[example]]
 name = "ssao"
 path = "examples/3d/ssao.rs"
 doc-scrape-examples = true

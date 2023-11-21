@@ -43,9 +43,9 @@ pub struct DepthOfFieldUniforms {
 
 #[derive(Resource)]
 pub (super) struct DoFPipeline {
-    layout: BindGroupLayout,
-    sampler: Sampler,
-    pipeline_id: CachedRenderPipelineId,
+    pub layout: BindGroupLayout,
+    pub sampler: Sampler,
+    pub pipeline_id: CachedRenderPipelineId,
 }
 
 impl FromWorld for DoFPipeline {
@@ -54,7 +54,7 @@ impl FromWorld for DoFPipeline {
 
         // We need to define the bind group layout used for our pipeline
         let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("post_process_bind_group_layout"),
+            label: Some("dof_bind_group_layout"),
             entries: &[
                 // The screen texture
                 BindGroupLayoutEntry {
@@ -67,16 +67,27 @@ impl FromWorld for DoFPipeline {
                     },
                     count: None,
                 },
-                // The sampler that will be used to sample the screen texture
+                // The depth texture
                 BindGroupLayoutEntry {
                     binding: 1,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Depth,
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                // The sampler that will be used to sample texture
+                BindGroupLayoutEntry {
+                    binding: 2,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
                 // The settings uniform that will control the effect
                 BindGroupLayoutEntry {
-                    binding: 2,
+                    binding: 3,
                     visibility: ShaderStages::FRAGMENT,
                     ty: BindingType::Buffer {
                         ty: BufferBindingType::Uniform,
@@ -95,7 +106,7 @@ impl FromWorld for DoFPipeline {
             .resource_mut::<PipelineCache>()
             // This will add the pipeline to the cache and queue it's creation
             .queue_render_pipeline(RenderPipelineDescriptor {
-                label: Some("post_process_pipeline".into()),
+                label: Some("dof_bind_group_layout".into()),
                 layout: vec![layout.clone()],
                 // This will setup a fullscreen triangle for the vertex state
                 vertex: fullscreen_shader_vertex_state(),

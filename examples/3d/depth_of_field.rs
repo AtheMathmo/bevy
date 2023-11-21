@@ -9,7 +9,7 @@ use bevy::{
     prelude::*,
     render::camera::TemporalJitter,
 };
-use bevy_internal::core_pipeline::depth_of_field::{DepthOfFieldSettings, DepthOfFieldPlugin};
+use bevy_internal::core_pipeline::depth_of_field::{DepthOfFieldBundle, DepthOfFieldPlugin};
 use std::f32::consts::PI;
 
 fn main() {
@@ -40,7 +40,7 @@ fn setup(
         })
         .insert(ScreenSpaceAmbientOcclusionBundle::default())
         .insert(TemporalAntiAliasBundle::default())
-        .insert(DepthOfFieldSettings::default());
+        .insert(DepthOfFieldBundle::default());
 
     let material = materials.add(StandardMaterial {
         base_color: Color::rgb(0.5, 0.5, 0.5),

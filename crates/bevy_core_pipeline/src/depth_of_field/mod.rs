@@ -4,7 +4,7 @@ use crate::{
     core_3d,
     core_3d::CORE_3D,
     prelude::Camera3d,
-    prepass::DepthPrepass, fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+    prepass::{DepthPrepass, ViewPrepassTextures}, fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
@@ -80,6 +80,12 @@ impl Plugin for DepthOfFieldPlugin {
     }
 }
 
+#[derive(Bundle, Default)]
+pub struct DepthOfFieldBundle {
+    pub settings: DepthOfFieldSettings,
+    pub depth_prepass: DepthPrepass
+}
+
 #[derive(Default)]
 struct DoFNode;
 
@@ -87,7 +93,7 @@ impl ViewNode for DoFNode {
     type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewTarget,
-        &'static ViewDepthTexture,
+        &'static ViewPrepassTextures,
         &'static DepthOfFieldSettings
     );
 
@@ -95,7 +101,7 @@ impl ViewNode for DoFNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view_target, view_depth, settings): QueryItem<Self::ViewQuery>,
+        (camera, view_target, prepass_textures, settings): QueryItem<Self::ViewQuery>,
         world: &World
     ) -> Result<(), NodeRunError> {
         // Get the pipeline resource that contains the global data we need
@@ -143,7 +149,7 @@ impl ViewNode for DoFNode {
                 // Make sure to use the source view
                 post_process.source,
                 // The depth of view
-                &view_depth.view,
+                &prepass_textures.depth.as_ref().unwrap().default_view,
                 // Use the sampler created for the pipeline
                 &dof_pipeline.sampler,
                 // Set the settings binding
@@ -161,13 +167,7 @@ impl ViewNode for DoFNode {
                 resolve_target: None,
                 ops: Operations::default(),
             })],
-            depth_stencil_attachment: Some(
-                RenderPassDepthStencilAttachment {
-                    view: &view_depth.view,
-                    depth_ops: Some(Operations { load: LoadOp::Load, store: false }),
-                    stencil_ops: None
-                }
-            ),
+            depth_stencil_attachment: None,
         });
 
         // This is mostly just wgpu boilerplate for drawing a fullscreen triangle,

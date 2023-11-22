@@ -2,14 +2,9 @@
 
 use bevy::{
     core_pipeline::experimental::taa::{TemporalAntiAliasBundle, TemporalAntiAliasPlugin},
-    pbr::{
-        ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionQualityLevel,
-        ScreenSpaceAmbientOcclusionSettings,
-    },
     prelude::*,
-    render::camera::TemporalJitter,
 };
-use bevy_internal::core_pipeline::depth_of_field::{DepthOfFieldBundle, DepthOfFieldPlugin};
+use bevy_internal::core_pipeline::depth_of_field::{DepthOfFieldBundle, DepthOfFieldPlugin, DepthOfFieldSettings};
 use std::f32::consts::PI;
 
 fn main() {
@@ -18,7 +13,12 @@ fn main() {
             brightness: 5.0,
             ..default()
         })
-        .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin, DepthOfFieldPlugin))
+        .add_plugins(DefaultPlugins.set(AssetPlugin {
+            watch_for_changes_override: Some(true),
+            ..Default::default()
+        }))
+        // TAA is highly recommended when applying screen-space Depth of field effects!
+        .add_plugins((TemporalAntiAliasPlugin, DepthOfFieldPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, update)
         .run();
@@ -38,9 +38,15 @@ fn setup(
             transform: Transform::from_xyz(-2.0, 2.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         })
-        .insert(ScreenSpaceAmbientOcclusionBundle::default())
         .insert(TemporalAntiAliasBundle::default())
-        .insert(DepthOfFieldBundle::default());
+        .insert(DepthOfFieldBundle {
+            settings: DepthOfFieldSettings {
+                focal_distance: 0.35,
+                aperture_diameter: 0.01,
+                focal_length: 0.01
+            },
+            ..default()
+        });
 
     let material = materials.add(StandardMaterial {
         base_color: Color::rgb(0.5, 0.5, 0.5),
@@ -51,13 +57,7 @@ fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         material: material.clone(),
-        transform: Transform::from_xyz(0.0, 0.0, 1.0),
-        ..default()
-    });
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: material.clone(),
-        transform: Transform::from_xyz(0.0, -1.0, 0.0),
+        transform: Transform::from_xyz(-0.3, -0.5, -0.2),
         ..default()
     });
     commands.spawn(PbrBundle {
@@ -69,7 +69,7 @@ fn setup(
     commands.spawn((
         PbrBundle {
             mesh: meshes.add(Mesh::from(shape::UVSphere {
-                radius: 0.4,
+                radius: 0.3,
                 sectors: 72,
                 stacks: 36,
             })),
@@ -79,6 +79,7 @@ fn setup(
                 reflectance: 0.0,
                 ..default()
             }),
+            transform: Transform::from_xyz(-2.0, 1.5, -1.85),
             ..default()
         },
         SphereMarker,
@@ -120,79 +121,78 @@ fn update(
     camera: Query<
         (
             Entity,
-            Option<&ScreenSpaceAmbientOcclusionSettings>,
-            Option<&TemporalJitter>,
+            Option<&DepthOfFieldSettings>,
         ),
         With<Camera>,
     >,
     mut text: Query<&mut Text>,
-    mut sphere: Query<&mut Transform, With<SphereMarker>>,
     mut commands: Commands,
     keycode: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
-    let mut sphere = sphere.single_mut();
-    sphere.translation.y = (time.elapsed_seconds() / 1.7).sin() * 0.7;
+   
 
-    let (camera_entity, ssao_settings, temporal_jitter) = camera.single();
+    let (camera_entity, dof_settings) = camera.single();
 
     let mut commands = commands.entity(camera_entity);
-    if keycode.just_pressed(KeyCode::Key1) {
-        commands.remove::<ScreenSpaceAmbientOcclusionSettings>();
-    }
-    if keycode.just_pressed(KeyCode::Key2) {
-        commands.insert(ScreenSpaceAmbientOcclusionSettings {
-            quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Low,
-        });
-    }
-    if keycode.just_pressed(KeyCode::Key3) {
-        commands.insert(ScreenSpaceAmbientOcclusionSettings {
-            quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Medium,
-        });
-    }
-    if keycode.just_pressed(KeyCode::Key4) {
-        commands.insert(ScreenSpaceAmbientOcclusionSettings {
-            quality_level: ScreenSpaceAmbientOcclusionQualityLevel::High,
-        });
-    }
-    if keycode.just_pressed(KeyCode::Key5) {
-        commands.insert(ScreenSpaceAmbientOcclusionSettings {
-            quality_level: ScreenSpaceAmbientOcclusionQualityLevel::Ultra,
-        });
-    }
     if keycode.just_pressed(KeyCode::Space) {
-        if temporal_jitter.is_some() {
-            commands.remove::<TemporalJitter>();
+        if dof_settings.is_some() {
+            commands.remove::<DepthOfFieldSettings>();
         } else {
-            commands.insert(TemporalJitter::default());
+            commands.insert(DepthOfFieldSettings {
+                    focal_distance: 0.33,
+                    ..default()
+                }
+            );
         }
+    } else if dof_settings.is_some() {
+        let settings = dof_settings.unwrap();
+
+        let mut new_settings = settings.clone();
+        if keycode.pressed(KeyCode::Q) {
+            new_settings.aperture_diameter = (new_settings.aperture_diameter + 0.05 * time.delta_seconds()).min(0.2);
+        }
+        if keycode.pressed(KeyCode::A) {
+            new_settings.aperture_diameter = (new_settings.aperture_diameter - 0.05 * time.delta_seconds()).max(0.01);
+        }
+
+        if keycode.pressed(KeyCode::W) {
+            new_settings.focal_distance = (new_settings.focal_distance + 0.5 * time.delta_seconds()).min(5.0);
+        }
+        if keycode.pressed(KeyCode::S) {
+            new_settings.focal_distance = (new_settings.focal_distance - 0.5 * time.delta_seconds()).max(1e-4);
+        }
+
+        if keycode.pressed(KeyCode::E) {
+            new_settings.focal_length = (new_settings.focal_length + 0.05 * time.delta_seconds()).min(new_settings.focal_distance - 1e-5);
+        }
+        if keycode.pressed(KeyCode::D) {
+            new_settings.focal_length = (new_settings.focal_length - 0.05 * time.delta_seconds()).max(0.01);
+        }
+        commands.insert(new_settings);
     }
+    
 
     let mut text = text.single_mut();
     let text = &mut text.sections[0].value;
     text.clear();
 
-    let (o, l, m, h, u) = match ssao_settings.map(|s| s.quality_level) {
-        None => ("*", "", "", "", ""),
-        Some(ScreenSpaceAmbientOcclusionQualityLevel::Low) => ("", "*", "", "", ""),
-        Some(ScreenSpaceAmbientOcclusionQualityLevel::Medium) => ("", "", "*", "", ""),
-        Some(ScreenSpaceAmbientOcclusionQualityLevel::High) => ("", "", "", "*", ""),
-        Some(ScreenSpaceAmbientOcclusionQualityLevel::Ultra) => ("", "", "", "", "*"),
-        _ => unreachable!(),
-    };
-
-    text.push_str("SSAO Quality:\n");
-    text.push_str(&format!("(1) {o}Off{o}\n"));
-    text.push_str(&format!("(2) {l}Low{l}\n"));
-    text.push_str(&format!("(3) {m}Medium{m}\n"));
-    text.push_str(&format!("(4) {h}High{h}\n"));
-    text.push_str(&format!("(5) {u}Ultra{u}\n\n"));
-
-    text.push_str("Temporal Antialiasing:\n");
-    text.push_str(match temporal_jitter {
-        Some(_) => "(Space) Enabled",
-        None => "(Space) Disabled",
+    text.push_str("Depth of Field:\n");
+    text.push_str(match dof_settings {
+        Some(_) => "(Space) Enabled\n",
+        None => "(Space) Disabled\n",
     });
+    if let Some(settings) = dof_settings {
+        text.push_str("Q/A: Change aperture diameter\n");
+        text.push_str(&format!("Aperture diameter: {:.2}\n", settings.aperture_diameter));
+
+        text.push_str("W/S: Change focal distance\n");
+        text.push_str(&format!("Focal distance: {:.2}\n", settings.focal_distance));
+
+        text.push_str("E/D: Change focal length\n");
+        text.push_str(&format!("Focal length: {:.2}\n", settings.focal_length));
+    }
+    
 }
 
 #[derive(Component)]

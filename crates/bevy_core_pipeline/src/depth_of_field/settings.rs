@@ -19,9 +19,9 @@ pub struct DepthOfFieldSettings {
 impl Default for DepthOfFieldSettings {
     fn default() -> Self {
         Self {
-            focal_length: 0.1,
-            aperture_diameter: 0.05,
-            focal_distance: 0.1
+            focal_length: 0.05,
+            aperture_diameter: 0.02,
+            focal_distance: 0.5
         }
     }
 }

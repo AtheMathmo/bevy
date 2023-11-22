@@ -8,12 +8,22 @@ use bevy_render::{extract_component::ExtractComponent, camera::Camera};
 
 use super::pipeline::DepthOfFieldUniforms;
 
-#[derive(Component, Default, Clone, Copy, Reflect)]
+#[derive(Component, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct DepthOfFieldSettings {
     pub focal_length: f32,
     pub aperture_diameter: f32,
-    pub focus_distance: f32
+    pub focal_distance: f32
+}
+
+impl Default for DepthOfFieldSettings {
+    fn default() -> Self {
+        Self {
+            focal_length: 0.1,
+            aperture_diameter: 0.05,
+            focal_distance: 0.1
+        }
+    }
 }
 
 impl ExtractComponent for DepthOfFieldSettings {
@@ -28,7 +38,7 @@ impl ExtractComponent for DepthOfFieldSettings {
             DepthOfFieldUniforms {
                 focal_length: settings.focal_length,
                 aperture_diameter: settings.aperture_diameter,
-                focus_distance: settings.focus_distance
+                focus_distance: settings.focal_distance
             }
         ))
     }
